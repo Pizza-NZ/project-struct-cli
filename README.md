@@ -30,6 +30,7 @@ Run the tool against a source directory. The output file will be created in your
 ./out/project-struct-cli -src . -format llm -out for-llm.txt
 ```
 ### Command-Line Flags
+
 - `-src`:The source directory to scan (default: `.` a.k.a. the current directory).
 - `-out`: The name of the output document (default: `project_structure.md`).
 - `-format`: The output format template to use. Options are `default`, `review`, `llm` (default: `default`).
