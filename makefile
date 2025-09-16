@@ -11,7 +11,7 @@ default: build
 # Build the application
 build:
 	@echo "Building..."
-	@go build -o ./out/$(BINARY_NAME) ./...
+	@go build -o ./out/$(BINARY_NAME) .
 
 # Run the application
 run: build

@@ -5,6 +5,8 @@
 ## File: `{{ .Path }}`
 
 ```{{ .Language }}
-{{ .Content }}
+{{- range .Lines }}
+{{ . }}
+{{- end }}
 ```
 {{ end }}

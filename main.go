@@ -7,21 +7,15 @@
 package main
 
 import (
-	"embed"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-)
 
-// templatesFS holds the embedded template files for generating the documents.
-// Using embed allows the binary to be self-contained without needing the
-// template files to be present on the filesystem at runtime.
-//
-//go:embed templates/*.tmpl
-var templatesFS embed.FS
+	builder "pizza-nz/project-struct-cli/builders"
+)
 
 // Config holds all the configuration parameters for the application,
 // primarily gathered from command-line flags.
@@ -37,36 +31,28 @@ type Config struct {
 	Format string
 }
 
-// FileData represents the contents of a single source file.
-type FileData struct {
-	// Path is the relative path of the file from the source directory.
-	Path string
-	// Content is the full text content of the file.
-	Content string
-	// Language is the detected programming language based on the file extension.
-	Language string
-}
-
-// TemplateData is the data structure passed to the templates for execution.
-type TemplateData struct {
-	ProjectName string
-	Files       []FileData
-}
-
 // --- Main Application Logic ---
 
 // run is the main logic function of the application. It orchestrates the
 // process of building the document from the given configuration.
 func run(cfg Config, output io.Writer) error {
-	builder := NewMarkdownBuilder()
-	builder.SetProjectName(filepath.Base(cfg.SrcDir))
+	var build builder.DocumentBuilder
+	switch cfg.Format {
+	case "review":
+		build = builder.NewReviewBuilder()
+	case "llm":
+		build = builder.NewLLMBuilder()
+	default: // "default"
+		build = builder.NewDefaultBuilder()
+	}
+	build.SetProjectName(filepath.Base(cfg.SrcDir))
 
 	// Set up the generator with the builder, source directory, and .gitignore file.
 	generator := NewGenerator(
-		WithBuilder(builder),
+		WithBuilder(build),
 		WithSrcDir(cfg.SrcDir),
 		WithGitIgnore(filepath.Join(cfg.SrcDir, ".gitignore")),
-		WithCliIngore(cfg.IgnoreCli),
+		WithCliIgnore(cfg.IgnoreCli),
 	)
 
 	// Walk the directory tree and collect file data.
@@ -75,7 +61,7 @@ func run(cfg Config, output io.Writer) error {
 	}
 
 	// Build the final document using the specified format.
-	doc, err := builder.Build(cfg.Format)
+	doc, err := build.Build()
 	if err != nil {
 		return err
 	}
@@ -91,7 +77,7 @@ func main() {
 	cfg := Config{}
 	flag.StringVar(&cfg.SrcDir, "src", ".", "The source directory to scan.")
 	flag.StringVar(&cfg.OutputFile, "out", "project_structure.md", "The name of the output document.")
-	flag.StringVar(&cfg.IgnoreCli, "ignore", ".git,.idea,node_modules,vendor,build,dist", "Comma-separated list of file patterns to ignore.")
+	flag.StringVar(&cfg.IgnoreCli, "ignore", ".idea,node_modules,vendor,build,dist", "Comma-separated list of file patterns to ignore.")
 	flag.StringVar(&cfg.Format, "format", "default", "The output format for the document (e.g., default, review, llm).")
 	flag.Parse()
 

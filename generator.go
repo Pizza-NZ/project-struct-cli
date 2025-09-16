@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	builder "pizza-nz/project-struct-cli/builders"
+	"pizza-nz/project-struct-cli/templates"
 	"strings"
 
 	ignore "github.com/sabhiram/go-gitignore"
@@ -13,7 +15,7 @@ import (
 // Generator is responsible for walking a directory structure, reading files,
 // and passing their data to a DocumentBuilder.
 type Generator struct {
-	builder          DocumentBuilder
+	builder          builder.DocumentBuilder
 	gitIgnoreMatcher ignore.IgnoreParser
 	cliIgnoreMatcher ignore.IgnoreParser
 	srcDir           string
@@ -36,7 +38,7 @@ func WithGitIgnore(path string) Option {
 	}
 }
 
-func WithCliIngore(patterns string) Option {
+func WithCliIgnore(patterns string) Option {
 	return func(g *Generator) {
 		if patterns == "" {
 			return // Do nothing if empty
@@ -49,7 +51,7 @@ func WithCliIngore(patterns string) Option {
 }
 
 // WithBuilder returns an Option that sets the DocumentBuilder for the Generator.
-func WithBuilder(builder DocumentBuilder) Option {
+func WithBuilder(builder builder.DocumentBuilder) Option {
 	return func(g *Generator) {
 		g.builder = builder
 	}
@@ -114,7 +116,7 @@ func (g *Generator) processPath(path string, d os.DirEntry, err error) error {
 			relativePath = path // Fallback to the full path on error.
 		}
 
-		file := FileData{
+		file := templates.FileData{
 			Path:     relativePath,
 			Content:  string(content),
 			Language: getFileLanguage(relativePath),
