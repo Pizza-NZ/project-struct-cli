@@ -7,7 +7,9 @@ This tool walks through a specified directory, reads the files, respects .gitign
 - Generating simple project documentation.
 ### Installation
 To install the command-line tool, you can use `go install`:
-`go install pizza-nz/project-struct-cli@latest`
+```bash 
+go install pizza-nz/project-struct-cli@latest
+```
 Alternatively, you can clone the repository and build it manually.
 ```bash
 git clone https://github.com/pizza-nz/project-struct-cli.git
