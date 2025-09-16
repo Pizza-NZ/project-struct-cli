@@ -1,144 +1,91 @@
+// project-struct-cli is a command-line tool that scans a directory and
+// consolidates all of its file contents into a single, structured document.
+//
+// It is designed to help create comprehensive project contexts for code reviews,
+// documentation, or for use with Large Language Models (LLMs). The tool is
+// configurable via command-line flags.
 package main
 
 import (
 	"embed"
 	"flag"
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-
-	ignore "github.com/sabhiram/go-gitignore"
 )
 
+// templatesFS holds the embedded template files for generating the documents.
+// Using embed allows the binary to be self-contained without needing the
+// template files to be present on the filesystem at runtime.
+//
 //go:embed templates/*.tmpl
 var templatesFS embed.FS
 
+// Config holds all the configuration parameters for the application,
+// primarily gathered from command-line flags.
 type Config struct {
-	SrcDir     string
-	OutputFile string
-	IgnoreStr  string
-	Format     string
-}
-
-type Generator struct {
-	ignoreMatcher ignore.IgnoreParser
-
+	// SrcDir is the source directory that will be scanned.
 	SrcDir string
-	Files  []FileData
+	// OutputFile is the path to the file where the final document will be written.
+	OutputFile string
+	// IgnoreStr is a legacy comma-separated string of patterns to ignore.
+	// Using a .gitignore file is the preferred method.
+	IgnoreStr string
+	// Format specifies which output template to use (e.g., 'default', 'llm').
+	Format string
 }
 
+// FileData represents the contents of a single source file.
 type FileData struct {
-	Path     string
-	Content  string
+	// Path is the relative path of the file from the source directory.
+	Path string
+	// Content is the full text content of the file.
+	Content string
+	// Language is the detected programming language based on the file extension.
 	Language string
 }
 
+// TemplateData is the data structure passed to the templates for execution.
 type TemplateData struct {
 	ProjectName string
 	Files       []FileData
 }
 
-func NewGenerator(matcher ignore.IgnoreParser, src string) *Generator {
-	return &Generator{
-		ignoreMatcher: matcher,
-		SrcDir:        src,
-		Files:         make([]FileData, 0),
-	}
-}
+// --- Main Application Logic ---
 
-func (g *Generator) processPath(path string, d os.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
-	if g.ignoreMatcher != nil && g.ignoreMatcher.MatchesPath(path) {
-		if d.IsDir() {
-			return filepath.SkipDir
-		}
-
-		return nil
-	}
-
-	if !d.IsDir() {
-		fmt.Printf("Processing file: %s\n", path)
-
-		content, readErr := os.ReadFile(path)
-		if readErr != nil {
-			log.Printf("Could not read file %s: %v", path, readErr)
-			return nil
-		}
-
-		relativePath, err := filepath.Rel(g.SrcDir, path)
-		if err != nil {
-			// Handle error, but you can probably just use the original path
-			relativePath = path
-		}
-
-		file := FileData{
-			Path:     relativePath,
-			Content:  string(content),
-			Language: getFileLanguage(path),
-		}
-		g.Files = append(g.Files, file)
-	}
-
-	return nil
-}
-
+// run is the main logic function of the application. It orchestrates the
+// process of building the document from the given configuration.
 func run(cfg Config, output io.Writer) error {
-	fmt.Printf("Scanning directory: %s\n", cfg.SrcDir)
+	builder := NewMarkdownBuilder()
+	builder.SetProjectName(filepath.Base(cfg.SrcDir))
 
-	var ignoreMatcher ignore.IgnoreParser
-	gitignorePath := filepath.Join(cfg.SrcDir, ".gitignore")
-	if _, err := os.Stat(gitignorePath); err == nil {
-		matcher, err := ignore.CompileIgnoreFile(gitignorePath)
-		if err != nil {
-			log.Printf("Could not parse .gitignore file: %v", err)
-		} else {
-			ignoreMatcher = matcher
-			fmt.Println("Loaded .gitignore rules.")
-		}
-	}
+	// Set up the generator with the builder, source directory, and .gitignore file.
+	generator := NewGenerator(
+		WithBuilder(builder),
+		WithSrcDir(cfg.SrcDir),
+		WithGitIgnore(filepath.Join(cfg.SrcDir, ".gitignore")),
+	)
 
-	generator := NewGenerator(ignoreMatcher, cfg.SrcDir)
-
-	if err := filepath.WalkDir(cfg.SrcDir, generator.processPath); err != nil {
+	// Walk the directory tree and collect file data.
+	if err := generator.Walk(); err != nil {
 		return err
 	}
 
-	templateData := TemplateData{
-		ProjectName: filepath.Base(cfg.SrcDir),
-		Files:       generator.Files,
-	}
-
-	var templatePath string
-	switch cfg.Format {
-	case "review":
-		templatePath = "templates/review.md.tmpl"
-	case "llm":
-		templatePath = "templates/llm.txt.tmpl"
-	case "default":
-		templatePath = "templates/default.md.tmpl"
-	default:
-		return fmt.Errorf("unknown format: %s", cfg.Format)
-	}
-
-	templateBytes, err := templatesFS.ReadFile(templatePath)
+	// Build the final document using the specified format.
+	doc, err := builder.Build(cfg.Format)
 	if err != nil {
-		return fmt.Errorf("could not read embedded template %s: %w", templatePath, err)
+		return err
 	}
 
-	tmpl, err := template.New("default").Parse(string(templateBytes))
-	if err != nil {
-		return fmt.Errorf("could not parse template: %w", err)
-	}
-
-	return tmpl.Execute(output, templateData)
+	// Write the generated document to the output.
+	_, err = io.Copy(output, doc)
+	return err
 }
 
+// main is the application entry point. It parses command-line flags,
+// sets up the output file, and calls the run function to execute the logic.
 func main() {
 	cfg := Config{}
 	flag.StringVar(&cfg.SrcDir, "src", ".", "The source directory to scan.")
@@ -160,6 +107,10 @@ func main() {
 	fmt.Printf("\nSuccess! Project structure written to %s\n", cfg.OutputFile)
 }
 
+// --- Helper Functions ---
+
+// getFileLanguage determines a file's programming language based on its extension.
+// It returns a string suitable for use in Markdown code blocks for syntax highlighting.
 func getFileLanguage(path string) string {
 	ext := filepath.Ext(path)
 	switch ext {
@@ -184,6 +135,8 @@ func getFileLanguage(path string) string {
 	case ".sh":
 		return "shell"
 	default:
+		// Return an empty string for unknown types, so Markdown will not
+		// try to apply syntax highlighting.
 		return ""
 	}
 }
