@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	ignore "github.com/sabhiram/go-gitignore"
 )
@@ -12,9 +13,10 @@ import (
 // Generator is responsible for walking a directory structure, reading files,
 // and passing their data to a DocumentBuilder.
 type Generator struct {
-	builder       DocumentBuilder
-	ignoreMatcher ignore.IgnoreParser
-	srcDir        string
+	builder          DocumentBuilder
+	gitIgnoreMatcher ignore.IgnoreParser
+	cliIgnoreMatcher ignore.IgnoreParser
+	srcDir           string
 }
 
 // Option is a function type used to configure a Generator. This follows the
@@ -29,8 +31,20 @@ func WithGitIgnore(path string) Option {
 		// If the .gitignore file doesn't exist or has errors, we simply
 		// proceed without an ignore matcher.
 		if err == nil {
-			g.ignoreMatcher = matcher
+			g.gitIgnoreMatcher = matcher
 		}
+	}
+}
+
+func WithCliIngore(patterns string) Option {
+	return func(g *Generator) {
+		if patterns == "" {
+			return // Do nothing if empty
+		}
+
+		lines := strings.Split(patterns, ",")
+		matcher := ignore.CompileIgnoreLines(lines...)
+		g.cliIgnoreMatcher = matcher
 	}
 }
 
@@ -75,8 +89,9 @@ func (g *Generator) processPath(path string, d os.DirEntry, err error) error {
 		return filepath.SkipDir
 	}
 
-	// Check if the path should be ignored based on .gitignore rules.
-	if g.ignoreMatcher != nil && g.ignoreMatcher.MatchesPath(path) {
+	// Check if the path should be ignored based on .gitignore or cli ignore rules.
+	if (g.gitIgnoreMatcher != nil && g.gitIgnoreMatcher.MatchesPath(path)) ||
+		(g.cliIgnoreMatcher != nil && g.cliIgnoreMatcher.MatchesPath(path)) {
 		// If a directory is ignored, skip it entirely.
 		if d.IsDir() {
 			return filepath.SkipDir

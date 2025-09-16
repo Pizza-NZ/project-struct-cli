@@ -30,9 +30,9 @@ type Config struct {
 	SrcDir string
 	// OutputFile is the path to the file where the final document will be written.
 	OutputFile string
-	// IgnoreStr is a legacy comma-separated string of patterns to ignore.
+	// IgnoreCli is a legacy comma-separated string of patterns to ignore.
 	// Using a .gitignore file is the preferred method.
-	IgnoreStr string
+	IgnoreCli string
 	// Format specifies which output template to use (e.g., 'default', 'llm').
 	Format string
 }
@@ -66,6 +66,7 @@ func run(cfg Config, output io.Writer) error {
 		WithBuilder(builder),
 		WithSrcDir(cfg.SrcDir),
 		WithGitIgnore(filepath.Join(cfg.SrcDir, ".gitignore")),
+		WithCliIngore(cfg.IgnoreCli),
 	)
 
 	// Walk the directory tree and collect file data.
@@ -90,7 +91,7 @@ func main() {
 	cfg := Config{}
 	flag.StringVar(&cfg.SrcDir, "src", ".", "The source directory to scan.")
 	flag.StringVar(&cfg.OutputFile, "out", "project_structure.md", "The name of the output document.")
-	flag.StringVar(&cfg.IgnoreStr, "ignore", ".git,.idea,node_modules,vendor,build,dist", "Legacy: still here but .gitignore is preferred.")
+	flag.StringVar(&cfg.IgnoreCli, "ignore", ".git,.idea,node_modules,vendor,build,dist", "Comma-separated list of file patterns to ignore.")
 	flag.StringVar(&cfg.Format, "format", "default", "The output format for the document (e.g., default, review, llm).")
 	flag.Parse()
 
