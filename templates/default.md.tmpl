@@ -1,0 +1,13 @@
+# Project Documentation: {{ .ProjectName }}
+
+This document contains the concatenated source code for all relevant files in the project.
+
+{{ range .Files }}
+---
+
+## File: `{{ .Path }}`
+
+```{{ .Language }}
+{{ .Content }}
+```
+{{ end }}

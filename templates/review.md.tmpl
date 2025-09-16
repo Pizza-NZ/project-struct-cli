@@ -1,0 +1,10 @@
+# Code Review for: {{ .ProjectName }}
+
+{{ range .Files }}
+---
+## File: `{{ .Path }}`
+
+```{{ .Language }}
+{{ .Content }}
+```
+{{ end }}

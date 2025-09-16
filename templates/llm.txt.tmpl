@@ -1,0 +1,7 @@
+Project Context: {{ .ProjectName }}
+
+{{ range .Files }}
+--- START OF FILE: {{ .Path }} ---
+{{ .Content }}
+--- END OF FILE: {{ .Path }} ---
+{{ end }}
