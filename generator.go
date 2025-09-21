@@ -16,27 +16,28 @@ import (
 // and passing their data to a DocumentBuilder.
 type Generator struct {
 	builder          builder.DocumentBuilder
-	gitIgnoreMatcher ignore.IgnoreParser
 	cliIgnoreMatcher ignore.IgnoreParser
 	srcDir           string
+
+	matcherCache map[string]ignore.IgnoreParser
 }
 
 // Option is a function type used to configure a Generator. This follows the
 // "Functional Options" pattern, allowing for flexible and clear configuration.
 type Option func(*Generator)
 
-// WithGitIgnore returns an Option that configures the Generator to use a
-// .gitignore file for filtering which files and directories to ignore.
-func WithGitIgnore(path string) Option {
-	return func(g *Generator) {
-		matcher, err := ignore.CompileIgnoreFile(path)
-		// If the .gitignore file doesn't exist or has errors, we simply
-		// proceed without an ignore matcher.
-		if err == nil {
-			g.gitIgnoreMatcher = matcher
-		}
-	}
-}
+// // WithGitIgnore returns an Option that configures the Generator to use a
+// // .gitignore file for filtering which files and directories to ignore.
+// func WithGitIgnore(path string) Option {
+// 	return func(g *Generator) {
+// 		matcher, err := ignore.CompileIgnoreFile(path)
+// 		// If the .gitignore file doesn't exist or has errors, we simply
+// 		// proceed without an ignore matcher.
+// 		if err == nil {
+// 			g.gitIgnoreMatcher = matcher
+// 		}
+// 	}
+// }
 
 func WithCliIgnore(patterns string) Option {
 	return func(g *Generator) {
@@ -66,7 +67,9 @@ func WithSrcDir(srcDir string) Option {
 
 // NewGenerator creates a new Generator and applies all the provided functional options.
 func NewGenerator(opts ...Option) *Generator {
-	g := &Generator{}
+	g := &Generator{
+		matcherCache: make(map[string]ignore.IgnoreParser),
+	}
 	for _, opt := range opts {
 		opt(g)
 	}
@@ -77,6 +80,59 @@ func NewGenerator(opts ...Option) *Generator {
 func (g *Generator) Walk() error {
 	fmt.Printf("Scanning directory: %s\n", g.srcDir)
 	return filepath.WalkDir(g.srcDir, g.processPath)
+}
+
+// findMatcherForDir walks up from a given directory to find the applicalbe .gitingore file.
+// It uses a cache to avoid redundant file system lookup.
+func (g *Generator) findMatcherForDir(dir string) ignore.IgnoreParser {
+	if matcher, exists := g.matcherCache[dir]; exists {
+		return matcher
+	}
+
+	parentDir := dir
+
+	ignorePath := filepath.Join(dir, ".gitignore")
+	if _, err := os.Stat(ignorePath); err == nil {
+		// .gitignore found, compile it
+		matcher, err := ignore.CompileIgnoreFile(ignorePath)
+		if err == nil {
+			// cache the found matcher for the original directory and return
+			g.matcherCache[dir] = matcher
+			return matcher
+		}
+	}
+
+	if dir == g.srcDir || dir == "." || dir == "/" {
+		g.matcherCache[dir] = nil
+		return nil
+	}
+
+	parentMatcher := g.findMatcherForDir(parentDir)
+	g.matcherCache[dir] = parentMatcher
+	return parentMatcher
+
+	// currentDir := dir
+	// for {
+	// 	ignorePath := filepath.Join(currentDir, ".gitignore")
+	// 	if _, err := os.Stat(ignorePath); err == nil {
+	// 		// .gitignore found, compile it
+	// 		matcher, err := ignore.CompileIgnoreFile(ignorePath)
+	// 		if err == nil {
+	// 			// cache the found matcher for the original directory and return
+	// 			g.matcherCache[dir] = matcher
+	// 			return matcher
+	// 		}
+	// 	}
+
+	// 	if currentDir == g.srcDir || currentDir == "." || currentDir == "/" {
+	// 		break
+	// 	}
+
+	// 	currentDir = filepath.Dir(currentDir)
+	// }
+
+	// g.matcherCache[dir] = nil
+	// return nil
 }
 
 // processPath is the callback function for filepath.WalkDir. It is called
@@ -91,8 +147,11 @@ func (g *Generator) processPath(path string, d os.DirEntry, err error) error {
 		return filepath.SkipDir
 	}
 
+	dir := filepath.Dir(path)
+	gitMatcher := g.findMatcherForDir(dir)
+
 	// Check if the path should be ignored based on .gitignore or cli ignore rules.
-	if (g.gitIgnoreMatcher != nil && g.gitIgnoreMatcher.MatchesPath(path)) ||
+	if (gitMatcher != nil && gitMatcher.MatchesPath(path)) ||
 		(g.cliIgnoreMatcher != nil && g.cliIgnoreMatcher.MatchesPath(path)) {
 		// If a directory is ignored, skip it entirely.
 		if d.IsDir() {

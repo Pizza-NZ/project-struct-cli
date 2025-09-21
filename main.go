@@ -51,7 +51,6 @@ func run(cfg Config, output io.Writer) error {
 	generator := NewGenerator(
 		WithBuilder(build),
 		WithSrcDir(cfg.SrcDir),
-		WithGitIgnore(filepath.Join(cfg.SrcDir, ".gitignore")),
 		WithCliIgnore(cfg.IgnoreCli),
 	)
 
