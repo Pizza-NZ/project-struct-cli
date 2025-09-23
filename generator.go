@@ -12,6 +12,15 @@ import (
 	ignore "github.com/sabhiram/go-gitignore"
 )
 
+// A set of common binary and archive file extensions to always ignore.
+// Using a map with an empty struct is a memory-efficient way to represent a set.
+var binaryExts = map[string]struct{}{
+	".exe": {}, ".dll": {}, ".so": {}, ".a": {}, ".lib": {}, ".o": {},
+	".zip": {}, ".gz": {}, ".tar": {}, ".rar": {}, ".7z": {},
+	".png": {}, ".jpg": {}, ".jpeg": {}, ".gif": {}, ".bmp": {}, ".ico": {},
+	".pdf": {}, ".doc": {}, ".docx": {}, ".xls": {}, ".xlsx": {}, ".ppt": {}, ".pptx": {},
+}
+
 // Generator is responsible for walking a directory structure, reading files,
 // and passing their data to a DocumentBuilder.
 type Generator struct {
@@ -162,6 +171,12 @@ func (g *Generator) processPath(path string, d os.DirEntry, err error) error {
 	}
 
 	if !d.IsDir() {
+		ext := filepath.Ext(path)
+		if _, exists := binaryExts[ext]; exists {
+			log.Printf("Skipping binary/archive file: %s", path)
+			return nil // Skip this file and continue the walk.
+		}
+
 		content, readErr := os.ReadFile(path)
 		if readErr != nil {
 			// Log the error but don't stop the whole process.
