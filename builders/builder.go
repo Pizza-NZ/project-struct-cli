@@ -13,6 +13,8 @@ type DocumentBuilder interface {
 	SetProjectName(name string)
 	// // SetFileTree is a planned feature to include a file tree overview in the document.
 	// SetFileTree(tree string)
+	// SetSummary sets the a README summary
+	SetSummary(summary string)
 	// AddFile adds a file's data to the builder for inclusion in the final document.
 	AddFile(file templates.FileData)
 	// Build uses a template format to construct the final document and returns it as an io.Reader.

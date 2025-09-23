@@ -8,8 +8,9 @@ import (
 // DefaultBuilder is a concrete implementation of DocumentBuilder that generates
 // a Markdown document from the provided file data.
 type DefaultBuilder struct {
-	projectName string
-	files       []templates.FileData
+	projectName    string
+	projectSummary string
+	files          []templates.FileData
 }
 
 // NewDefaultBuilder creates and returns a new DefaultBuilder instance.
@@ -27,6 +28,10 @@ func (b *DefaultBuilder) SetProjectName(name string) {
 // 	// TODO: Implement file tree generation and inclusion.
 // }
 
+func (b *DefaultBuilder) SetSummary(summary string) {
+	b.projectSummary = summary
+}
+
 // AddFile appends file data to the internal slice.
 func (b *DefaultBuilder) AddFile(file templates.FileData) {
 	b.files = append(b.files, file)
@@ -36,8 +41,9 @@ func (b *DefaultBuilder) AddFile(file templates.FileData) {
 // It returns the generated document as an io.Reader.
 func (b *DefaultBuilder) Build() (io.Reader, error) {
 	templateData := templates.TemplateData{
-		ProjectName: b.projectName,
-		Files:       b.files,
+		ProjectName:    b.projectName,
+		ProjectSummary: b.projectSummary,
+		Files:          b.files,
 	}
 	return templates.ExecuteTemplate(templates.Default, templateData)
 }
