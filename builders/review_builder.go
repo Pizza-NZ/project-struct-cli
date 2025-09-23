@@ -8,8 +8,9 @@ import (
 )
 
 type ReviewBuilder struct {
-	projectName string
-	files       []templates.FileData
+	projectName    string
+	projectSummary string
+	files          []templates.FileData
 }
 
 // ReviewFileData will be used internally by the builder for the review template
@@ -30,6 +31,10 @@ func NewReviewBuilder() *ReviewBuilder {
 // SetProjectName stores the project name for use in the template.
 func (b *ReviewBuilder) SetProjectName(name string) {
 	b.projectName = name
+}
+
+func (b *ReviewBuilder) SetSummary(summary string) {
+	b.projectSummary = summary
 }
 
 // AddFile appends file data to the internal slice.
@@ -55,11 +60,13 @@ func (b *ReviewBuilder) Build() (io.Reader, error) {
 	}
 
 	templateData := struct {
-		ProjectName string
-		Files       []ReviewFileData
+		ProjectName    string
+		ProjectSummary string
+		Files          []ReviewFileData
 	}{
-		ProjectName: b.projectName,
-		Files:       reviewFiles,
+		ProjectName:    b.projectName,
+		ProjectSummary: b.projectSummary,
+		Files:          reviewFiles,
 	}
 
 	return templates.ExecuteTemplate(templates.Review, templateData)

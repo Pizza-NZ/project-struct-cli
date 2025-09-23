@@ -47,6 +47,11 @@ func run(cfg Config, output io.Writer) error {
 	}
 	build.SetProjectName(filepath.Base(cfg.SrcDir))
 
+	readmePath := filepath.Join(cfg.SrcDir, "README.md")
+	if content, err := os.ReadFile(readmePath); err == nil {
+		build.SetSummary(string(content))
+	}
+
 	// Set up the generator with the builder, source directory, and .gitignore file.
 	generator := NewGenerator(
 		WithBuilder(build),
