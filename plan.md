@@ -3,17 +3,17 @@ This is a list for meee
 (DD-MM-YYYY)
 
 ## MUST DO
-
+Highlight Key Comments (Review Feature)
 
 ## Should be done
-Add the README.md to top of page (General Feature)
-
-## Later not today
 Add a File Tree at the Top (LLM feature)
 Strategic File Exclusion (LLM/General feature) 
 
+## Later not today
+
+
 ## Suffer in slience
-Highlight Key Comments (Review Feature)
+
 
 ## Done
 Using filepath.Rel()
@@ -21,6 +21,7 @@ Refactor to use Functional Options and Builder Pattern && Modularise project (16
 Add second .ignore matcher for cli (General Feature) (16-9-25)
 Pre-process Data in Go // e.g. {{range .Lines}}{{.}}{{end}} (16-9-25)
 Line numbers (Review Feature) (16-9-25)
+Add the README.md to top of page (General Feature) (24-9-25)
 
 ## Copy and Paste Snippets
 
