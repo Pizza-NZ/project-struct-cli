@@ -9,7 +9,7 @@ import (
 
 type ReviewBuilder struct {
 	projectName    string
-	projectSummary string
+	projectSummary templates.FileData
 	files          []templates.FileData
 }
 
@@ -33,7 +33,7 @@ func (b *ReviewBuilder) SetProjectName(name string) {
 	b.projectName = name
 }
 
-func (b *ReviewBuilder) SetSummary(summary string) {
+func (b *ReviewBuilder) SetSummary(summary templates.FileData) {
 	b.projectSummary = summary
 }
 
@@ -61,7 +61,7 @@ func (b *ReviewBuilder) Build() (io.Reader, error) {
 
 	templateData := struct {
 		ProjectName    string
-		ProjectSummary string
+		ProjectSummary templates.FileData
 		Files          []ReviewFileData
 	}{
 		ProjectName:    b.projectName,

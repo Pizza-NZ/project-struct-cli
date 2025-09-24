@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 
 	builder "pizza-nz/project-struct-cli/builders"
+	"pizza-nz/project-struct-cli/templates"
 )
 
 // Config holds all the configuration parameters for the application,
@@ -29,6 +30,10 @@ type Config struct {
 	IgnoreCli string
 	// Format specifies which output template to use (e.g., 'default', 'llm').
 	Format string
+	// MaxSizeKB specifies the maximum individual file size in KB to include.
+	MaxSizeKB int64
+	// MaxTotalSizeMB specifies the maximum total size of all files in MB.
+	MaxTotalSizeMB int64
 }
 
 // --- Main Application Logic ---
@@ -49,7 +54,12 @@ func run(cfg Config, output io.Writer) error {
 
 	readmePath := filepath.Join(cfg.SrcDir, "README.md")
 	if content, err := os.ReadFile(readmePath); err == nil {
-		build.SetSummary(string(content))
+		file := templates.FileData{
+			Path:     "",
+			Content:  string(content),
+			Language: getFileLanguage(readmePath),
+		}
+		build.SetSummary(file)
 	}
 
 	// Set up the generator with the builder, source directory, and .gitignore file.
@@ -57,6 +67,8 @@ func run(cfg Config, output io.Writer) error {
 		WithBuilder(build),
 		WithSrcDir(cfg.SrcDir),
 		WithCliIgnore(cfg.IgnoreCli),
+		WithMaxSize(cfg.MaxSizeKB),
+		WithTotalSizeLimit(cfg.MaxTotalSizeMB),
 	)
 
 	// Walk the directory tree and collect file data.
@@ -83,6 +95,8 @@ func main() {
 	flag.StringVar(&cfg.OutputFile, "out", "project_structure.md", "The name of the output document.")
 	flag.StringVar(&cfg.IgnoreCli, "ignore", ".idea,node_modules,vendor,build,dist", "Comma-separated list of file patterns to ignore.")
 	flag.StringVar(&cfg.Format, "format", "default", "The output format for the document (e.g., default, review, llm).")
+	flag.Int64Var(&cfg.MaxSizeKB, "max-size", 2048, "Maximum individual file size in KB to include (e.g., 2048 for 2MB).")
+	flag.Int64Var(&cfg.MaxTotalSizeMB, "max-total", 100, "Maximum total size of all files in MB.")
 	flag.Parse()
 
 	f, err := os.Create(cfg.OutputFile)

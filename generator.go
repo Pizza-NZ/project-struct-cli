@@ -27,6 +27,9 @@ type Generator struct {
 	builder          builder.DocumentBuilder
 	cliIgnoreMatcher ignore.IgnoreParser
 	srcDir           string
+	maxSizeBytes     int64
+	totalSizeLimit   int64
+	currentTotalSize int64
 
 	matcherCache map[string]ignore.IgnoreParser
 }
@@ -74,6 +77,20 @@ func WithSrcDir(srcDir string) Option {
 	}
 }
 
+// WithMaxSize returns an Option that sets the maximum individual file size in KB for the Generator to include.
+func WithMaxSize(kb int64) Option {
+	return func(g *Generator) {
+		g.maxSizeBytes = kb * 1024 // Convert KB to bytes
+	}
+}
+
+// WithTotalSizeLimit returns an Option that sets the total file size in MB for the Generator to output.
+func WithTotalSizeLimit(mb int64) Option {
+	return func(g *Generator) {
+		g.totalSizeLimit = mb * 1024 * 1024 // Convert MB to bytes
+	}
+}
+
 // NewGenerator creates a new Generator and applies all the provided functional options.
 func NewGenerator(opts ...Option) *Generator {
 	g := &Generator{
@@ -94,54 +111,36 @@ func (g *Generator) Walk() error {
 // findMatcherForDir walks up from a given directory to find the applicalbe .gitingore file.
 // It uses a cache to avoid redundant file system lookup.
 func (g *Generator) findMatcherForDir(dir string) ignore.IgnoreParser {
+	// 1. Check if we have already calculated the matcher for this directory.
 	if matcher, exists := g.matcherCache[dir]; exists {
-		return matcher
+		return matcher // Return the cached value (can be a matcher or nil)
 	}
 
-	parentDir := dir
-
+	// 2. Look for a .gitignore in the current directory.
 	ignorePath := filepath.Join(dir, ".gitignore")
 	if _, err := os.Stat(ignorePath); err == nil {
-		// .gitignore found, compile it
+		// Found a .gitignore here. Compile it, cache it, and return it.
 		matcher, err := ignore.CompileIgnoreFile(ignorePath)
 		if err == nil {
-			// cache the found matcher for the original directory and return
 			g.matcherCache[dir] = matcher
 			return matcher
 		}
 	}
 
+	// 3. If we are at the root of the scan, there are no more parents to check.
 	if dir == g.srcDir || dir == "." || dir == "/" {
-		g.matcherCache[dir] = nil
+		g.matcherCache[dir] = nil // Cache nil to show we've checked and found nothing.
 		return nil
 	}
 
+	// 4. If no .gitignore was found here, the correct rules are the same as the parent's.
+	// We recursively call the function for the parent directory.
+	parentDir := filepath.Dir(dir)
 	parentMatcher := g.findMatcherForDir(parentDir)
+
+	// Cache the parent's matcher for the current directory to speed up future lookups.
 	g.matcherCache[dir] = parentMatcher
 	return parentMatcher
-
-	// currentDir := dir
-	// for {
-	// 	ignorePath := filepath.Join(currentDir, ".gitignore")
-	// 	if _, err := os.Stat(ignorePath); err == nil {
-	// 		// .gitignore found, compile it
-	// 		matcher, err := ignore.CompileIgnoreFile(ignorePath)
-	// 		if err == nil {
-	// 			// cache the found matcher for the original directory and return
-	// 			g.matcherCache[dir] = matcher
-	// 			return matcher
-	// 		}
-	// 	}
-
-	// 	if currentDir == g.srcDir || currentDir == "." || currentDir == "/" {
-	// 		break
-	// 	}
-
-	// 	currentDir = filepath.Dir(currentDir)
-	// }
-
-	// g.matcherCache[dir] = nil
-	// return nil
 }
 
 // processPath is the callback function for filepath.WalkDir. It is called
@@ -177,12 +176,29 @@ func (g *Generator) processPath(path string, d os.DirEntry, err error) error {
 			return nil // Skip this file and continue the walk.
 		}
 
+		// File info to check size
+		info, err := d.Info()
+		if err != nil {
+			log.Printf("Could not get file info for %s: %v", path, err)
+			return nil // Skip if we can't get info
+		}
+		if g.maxSizeBytes > 0 && info.Size() > g.maxSizeBytes {
+			log.Printf("Skipping large file: %s (size: %.2f KB)", path, float64(info.Size())/1024.0)
+			return nil
+		}
+
+		if g.totalSizeLimit > 0 && (g.currentTotalSize+info.Size() > g.totalSizeLimit) {
+			return fmt.Errorf("total size limit of %.2f MB exceeded", float64(g.totalSizeLimit)/(1024*1024))
+		}
+
 		content, readErr := os.ReadFile(path)
 		if readErr != nil {
 			// Log the error but don't stop the whole process.
 			log.Printf("Could not read file %s: %v", path, readErr)
 			return nil
 		}
+
+		g.currentTotalSize += info.Size()
 
 		// Get the file path relative to the source directory for cleaner output.
 		relativePath, err := filepath.Rel(g.srcDir, path)
