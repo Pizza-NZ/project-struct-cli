@@ -35,7 +35,7 @@ func (p TemplatePath) String() string {
 // TemplateData is the data structure passed to the templates for execution.
 type TemplateData struct {
 	ProjectName    string
-	ProjectSummary string
+	ProjectSummary FileData
 	Files          []FileData
 }
 

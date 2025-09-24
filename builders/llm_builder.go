@@ -9,7 +9,7 @@ import (
 // a Markdown document from the provided file data.
 type LLMBuilder struct {
 	projectName    string
-	projectSummary string
+	projectSummary templates.FileData
 	files          []templates.FileData
 }
 
@@ -28,7 +28,7 @@ func (b *LLMBuilder) SetProjectName(name string) {
 // 	// TODO: Implement file tree generation and inclusion.
 // }
 
-func (b *LLMBuilder) SetSummary(summary string) {
+func (b *LLMBuilder) SetSummary(summary templates.FileData) {
 	b.projectSummary = summary
 }
 

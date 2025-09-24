@@ -9,7 +9,7 @@ import (
 // a Markdown document from the provided file data.
 type DefaultBuilder struct {
 	projectName    string
-	projectSummary string
+	projectSummary templates.FileData
 	files          []templates.FileData
 }
 
@@ -28,7 +28,7 @@ func (b *DefaultBuilder) SetProjectName(name string) {
 // 	// TODO: Implement file tree generation and inclusion.
 // }
 
-func (b *DefaultBuilder) SetSummary(summary string) {
+func (b *DefaultBuilder) SetSummary(summary templates.FileData) {
 	b.projectSummary = summary
 }
 
