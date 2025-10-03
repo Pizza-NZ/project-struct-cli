@@ -1,0 +1,33 @@
+name: Code Quality
+
+on:
+    push:
+        branches:
+            - "**" 
+    pull_request:
+        branches:
+            - "main"
+
+jobs:
+    lint-and-test:
+        name: Lint and Test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                go-version: '1.25'
+
+            - name: Install golangci-lint
+              uses: golangci/golangci-lint-action@v6
+              with:
+                version: v1.58.1
+
+            - name: Run Linter
+              run: golangci-lint run ./...
+
+            - name: Run Tests
+              run: go test -v ./...

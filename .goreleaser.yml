@@ -1,0 +1,38 @@
+builds:
+  - id: "proj-cli"
+    # The main Go file to build.
+    main: ./
+    # The name of the binary.
+    binary: proj-cli
+    # GOOS and GOARCH to build for.
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - format: tar.gz
+    # This name template will generate archives like `proj-cli_1.0.0_linux_amd64.tar.gz`
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    # Exclude commits that match these regexes.
+    exclude:
+      - '^docs:'
+      - '^test:'
