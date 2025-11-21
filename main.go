@@ -103,7 +103,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create output file: %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	if err := run(cfg, f); err != nil {
 		log.Fatalf("Error during directory scan: %v", err)
